@@ -1,301 +1,217 @@
-
-/*
-   Apply box-sizing to every element.
-
-   This makes width/height calculations much easier to control.
-*/
 * {
     box-sizing: border-box;
 }
 
-/*
-   Body styling.
-   We are creating a soft weather-app background with a gradient.
-*/
 body {
-
     font-family: Arial, Helvetica, sans-serif;
-
-    /*
-       Soft blue gradient.
-       Later we can make this change dynamically based on
-       the current weather.
-    */
-    background: linear-gradient(
-        135deg,
-        #74ebd5,
-        #9face6
-    );
-
-    /*
-       Remove the default body margin.
-    */
+    background: linear-gradient(135deg, #74ebd5, #9face6);
     margin: 0;
-
-    /*
-       Make sure the background covers the entire screen.
-    */
     min-height: 100vh;
-
+    transition: background 0.6s ease;
 }
 
-/* WEATHER CONTAINER */
-  
-/*
-   This is our main weather card.
+/* Weather themes are changed dynamically by JavaScript */
+body.clear-day {
+    background: linear-gradient(135deg, #56ccf2, #f2c94c);
+}
 
-   Bootstrap already gives it:
-   - card
-   - shadow-lg
-   - rounded-4
+body.clear-night {
+    background: linear-gradient(135deg, #141e30, #243b55);
+}
 
-   We add our own custom sizing here.
-*/
+body.cloudy {
+    background: linear-gradient(135deg, #bdc3c7, #2c3e50);
+}
+
+body.rainy {
+    background: linear-gradient(135deg, #4b79a1, #283e51);
+}
+
+body.snowy {
+    background: linear-gradient(135deg, #e6dada, #274046);
+}
+
+body.stormy {
+    background: linear-gradient(135deg, #232526, #414345);
+}
+
+body.foggy {
+    background: linear-gradient(135deg, #757f9a, #d7dde8);
+}
 
 #weather-container {
-
-    /*
-       Prevent the card from becoming too wide on desktop.
-    */
     width: 100%;
     max-width: 650px;
-    /*
-       Slight transparency gives the card a modern look.
-    */
     background: rgba(255, 255, 255, 0.95);
-
 }
 
-
-/* APP TITLE */
 #weather-container h1 {
-    /*
-       Slight letter spacing makes the title cleaner.
-    */
     letter-spacing: -0.5px;
-
 }
-
-
-/* SEARCH INPUT */
-
-/*
-   We only customize the focus state.
-*/
 
 #city-input {
-    /*
-       Removing Bootstrap's default focus behavior.
-       We'll create our own.
-    */
     transition: 0.2s ease;
 }
 
-/*
-   When the user clicks the input.
-*/
-
 #city-input:focus {
-    /*
-       Slightly enlarge the shadow.
-    */
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
 }
 
-/* SEARCH BUTTON*/
-#search-button {
-    /*
-       Smooth hover animation.
-    */
-    transition: transform 0.2s ease,
-                box-shadow 0.2s ease;
+#search-button,
+#location-button {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-/*
-   Hover effect.
-*/
-#search-button:hover {
-    /*
-       Move the button slightly upward.
-    */
+
+#search-button:hover,
+#location-button:hover {
     transform: translateY(-2px);
-    /*
-       Add a little shadow.
-    */
     box-shadow: 0 5px 12px rgba(0, 0, 0, 0.15);
 }
 
-/*
-   Active state = when the user clicks the button.
-*/
-#search-button:active {
-
+#search-button:active,
+#location-button:active {
     transform: translateY(0);
-
 }
 
-
-/* WEATHER ICON*/
 .weather-icon {
-    /*
-       Smooth animation when the image changes.
-    */
-    object-fit: contain;    /* image will be resized to fit the container */
+    object-fit: contain;
     transition: transform 0.3s ease;
 }
-
-/*
-   Small hover effect.
-*/
 
 .weather-icon:hover {
     transform: scale(1.08);
 }
 
-
-/* TEMPERATURE*/
 .temperature-display {
-    /*
-       Make temperature visually dominant.
-    */
     line-height: 1;
 }
 
-
-/*
-   "°C" beside the temperature.
-*/
-
 .temperature-unit {
-
     font-size: 1.5rem;
-
     font-weight: 600;
-
     vertical-align: top;
-
     position: relative;
-
     top: 8px;
-
 }
-
-/* WEATHER DETAIL CARDS*/
 
 .weather-detail-card {
-
-    /*
-       Very light background.
-    */
     background-color: #f8f9fa;
-
-    /*
-       Rounded corners.
-    */
     border-radius: 12px;
-
-    /*
-       Internal spacing.
-    */
     padding: 15px 8px;
-
-    /*
-       Smooth hover animation.
-    */
-    transition: transform 0.2s ease,
-                box-shadow 0.2s ease;
-
-    /*
-       Make sure the card occupies the full column.
-    */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     height: 100%;
-
 }
 
-/*
-   Hover effect for detail cards.
-*/
-
 .weather-detail-card:hover {
-
     transform: translateY(-4px);
     box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
 }
 
-/* WEATHER DETAIL ICON*/
-
 .weather-detail-icon {
-
     font-size: 1.5rem;
     margin-bottom: 5px;
 }
 
-/* WEATHER DETAIL TITLE*/
-
 .weather-detail-title {
-
     font-size: 0.8rem;
     color: #6c757d;
     margin-bottom: 3px;
 }
 
-/* WEATHER DETAIL VALUE*/
-
 .weather-detail-value {
-
     font-weight: 700;
     font-size: 0.95rem;
     margin-bottom: 0;
-
 }
 
-/* RESPONSIVE DESIGN*/
+/* Multiple city search results */
+#search-results {
+    max-height: 220px;
+    overflow-y: auto;
+}
 
-/*
-   For smaller screens such as phones.
-*/
+#search-results .list-group-item {
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+#search-results .list-group-item:hover {
+    transform: translateX(3px);
+}
+
+/* 7-day forecast */
+#forecast-container {
+    overflow-x: auto;
+}
+
+.forecast-card {
+    background-color: #f8f9fa;
+    border-radius: 12px;
+    padding: 12px 6px;
+    text-align: center;
+    height: 100%;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.forecast-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+}
+
+.forecast-day {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.forecast-icon {
+    width: 45px;
+    height: 45px;
+    object-fit: contain;
+    margin-bottom: 5px;
+}
+
+.forecast-condition {
+    font-size: 0.7rem;
+    color: #6c757d;
+    min-height: 32px;
+    margin-bottom: 4px;
+}
+
+.forecast-temperature {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.forecast-low {
+    color: #6c757d;
+    font-weight: 400;
+}
 
 @media (max-width: 576px) {
-
     #weather-container {
-        /*
-           Reduce the width slightly so there is some
-           breathing room around the card.
-        */
         width: 95%;
     }
-
-    /*
-       Make the main card slightly less spacious on mobile.
-    */
 
     #weather-container .card-body {
         padding: 1.5rem !important;
     }
 
-    /*
-       Make the temperature slightly smaller on phones.
-    */
-
     .temperature-display .display-3 {
         font-size: 3rem;
     }
-
-    /*
-       Smaller weather detail cards.
-    */
 
     .weather-detail-card {
         padding: 12px 5px;
     }
 
-    /*
-       Smaller detail text.
-    */
-
     .weather-detail-value {
         font-size: 0.8rem;
     }
 
+    .forecast-card {
+        min-width: 90px;
+    }
 }
 
 /* **************************************************************** */

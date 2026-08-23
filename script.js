@@ -1,757 +1,394 @@
 /* =========================================================
    SKYSCAN WEATHER APP
-
-   1. Search using the button
-   2. Search using the Enter key
-   3. Prevent empty searches
-   4. Show loading state
-   5. Disable search button while loading
-   6. Handle invalid cities
-   7. Handle API errors
-   8. Handle unexpected data
-   9. Clear old errors
-   10. Use the new "weather-image" ID
-
-   ========================================================= */
-/* =========================================================
-   WEATHER CODE MAP
-   ---------------------------------------------------------
-   Open-Meteo returns a numerical weather code.
-   We convert that numerical code into:
-   1. A readable weather condition
-   2. An appropriate image
+   Current weather + 7-day forecast + location detection
    ========================================================= */
 
 const weatherCodeMap = {
-
     0: ["Clear Sky", "sun.png"],
-
     1: ["Mainly Clear", "sun.png"],
-
     2: ["Partly Cloudy", "cloudy.png"],
-
     3: ["Overcast", "overcast.png"],
-
     45: ["Fog", "fog.png"],
-
     48: ["Depositing Rime Fog", "fog.png"],
-
     51: ["Light Drizzle", "rain.png"],
-
     53: ["Moderate Drizzle", "rain.png"],
-
     55: ["Dense Drizzle", "rain.png"],
-
     56: ["Light Freezing Drizzle", "rain.png"],
-
     57: ["Dense Freezing Drizzle", "rain.png"],
-
     61: ["Slight Rain", "rain.png"],
-
     63: ["Moderate Rain", "rain.png"],
-
     65: ["Heavy Rain", "rain.png"],
-
     66: ["Light Freezing Rain", "rain.png"],
-
     67: ["Dense Freezing Rain", "rain.png"],
-
     71: ["Light Snow", "snow.png"],
-
     73: ["Moderate Snow", "snow.png"],
-
     75: ["Heavy Snow", "snow.png"],
-
     77: ["Snow Grains", "snow.png"],
-
     80: ["Slight Rain Showers", "rain.png"],
-
     81: ["Moderate Rain Showers", "rain.png"],
-
     82: ["Violent Rain Showers", "rain.png"],
-
     85: ["Slight Snow Showers", "snow.png"],
-
     86: ["Heavy Snow Showers", "snow.png"],
-
     95: ["Thunderstorm", "thunderstorm.png"],
-
     96: ["Thunderstorm With Slight Hail", "thunderstorm.png"],
-
     99: ["Thunderstorm With Heavy Hail", "thunderstorm.png"]
-
 };
 
-/* GET HTML ELEMENTS
-   ---------------------------------------------------------
-   Instead of repeatedly writing:
-   document.getElementById(...)
-   throughout our code, we store references to the elements
-   in variables.
-   ========================================================= */
-
+/* Get references to important HTML elements */
 const cityInput = document.getElementById("city-input");
-
 const searchButton = document.getElementById("search-button");
+const locationButton = document.getElementById("location-button");
+const searchResults = document.getElementById("search-results");
 
 const cityElement = document.getElementById("city");
-
 const dateElement = document.getElementById("date");
-
 const weatherImage = document.getElementById("weather-image");
-
 const temperatureElement = document.getElementById("temperature");
+const weatherConditionElement = document.getElementById("weather-condition");
 
-const weatherConditionElement =
-    document.getElementById("weather-condition");
+const windSpeedElement = document.getElementById("wind-speed");
+const humidityElement = document.getElementById("humidity");
+const feelsLikeElement = document.getElementById("feels-like");
 
-const windSpeedElement =
-    document.getElementById("wind-speed");
+const loadingElement = document.getElementById("loading");
+const errorElement = document.getElementById("error-message");
+const forecastContainer = document.getElementById("forecast-container");
 
-const humidityElement =
-    document.getElementById("humidity");
-
-const feelsLikeElement =
-    document.getElementById("feels-like");
-
-const loadingElement =
-    document.getElementById("loading");
-
-const errorElement =
-    document.getElementById("error-message");
-
-/* EVENT LISTENERS */
-/*
-   When the user clicks the Search button, we call getWeather().
-*/
-
+/* Search button */
 searchButton.addEventListener("click", getWeather);
 
-/*Allow the user to press ENTER instead of clicking Search. keydown fires whenever a key is pressed.
-*/
-
-cityInput.addEventListener("keydown", function (event) {
-    /*
-       Check whether the pressed key was Enter.
-    */
-
-    if (event.key === "Enter") {        // .key is a property that returns the key that was pressed
+/* Enter key search */
+cityInput.addEventListener("keydown", function(event) {
+    if (event.key === "Enter") {
         getWeather();
     }
-
 });
 
-/* MAIN WEATHER FUNCTION */
-/* =========================================================
-   GET WEATHER
-   ---------------------------------------------------------
-   This function:
+/* Browser geolocation */
+locationButton.addEventListener("click", getCurrentLocation);
 
-   1. Gets the city entered by the user
-   2. Finds its latitude and longitude
-   3. Requests current weather data
-   4. Extracts the required weather information
-   5. Displays everything on the webpage
+
+/* =========================================================
+   SEARCH CITY
    ========================================================= */
 
-async function getWeather() 
-{
-
-    // Get user input
+async function getWeather() {
     const city = cityInput.value.trim();
-
-    /*
-       Don't make an API request if the user didn't
-       enter anything.
-    */
 
     if (!city) {
         showError("Please enter a city name.");
         return;
-
     }
 
-    // START LOADING
-    showLoading();      // show the loading spinner when a search is started
-
-    hideError();          // hide the error message when a new search is started
-
-    /*
-       try/catch handles possible API or JavaScript errors.
-    */
+    showLoading();
+    hideError();
+    searchResults.innerHTML = "";
 
     try {
-        /*GEOCODING API*/
-
-        /*
-           Convert city name into:
-
-           latitude
-           longitude
-           country
-           location name
-        */
-
-        const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}`;
-
+        /* Geocoding converts the city name into coordinates */
+        const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=5&language=en&format=json`;
         const geoResponse = await fetch(geoUrl);
 
-        /*
-           Check whether the request was successful.
-        */
-
         if (!geoResponse.ok) {
-            throw new Error(
-                "Unable to connect to the location service."
-            );
-
+            throw new Error("Unable to connect to the location service.");
         }
+
         const geoData = await geoResponse.json();
 
-        // CHECK IF CORRECT INPUT HAS BEEN ENTERED
-        if (!geoData.results || geoData.results.length === 0) 
-        {
-            throw new Error(
-                `We couldn't find "${city}". Please check the spelling and try again.`
-            );
-
+        if (!geoData.results || geoData.results.length === 0) {
+            throw new Error(`We couldn't find "${city}". Please check the spelling and try again.`);
         }
 
-        // GET LOCATION
-        const location = geoData.results[0];
+        /* Show choices when multiple locations have the same name */
+        if (geoData.results.length > 1) {
+            hideLoading();
+            displaySearchResults(geoData.results);
+        } else {
+            await loadWeatherForLocation(geoData.results[0]);
+        }
+
+    } catch (error) {
+        console.error("Weather App Error:", error);
+        showError(error.message || "Something went wrong. Please try again.");
+        hideLoading();
+    }
+}
+
+
+/* =========================================================
+   DISPLAY MULTIPLE SEARCH RESULTS
+   ========================================================= */
+
+function displaySearchResults(results) {
+    searchResults.innerHTML = "";
+
+    results.forEach(function(location) {
+        const button = document.createElement("button");
+
+        button.type = "button";
+        button.className = "list-group-item list-group-item-action text-start";
+
+        const admin = location.admin1 ? `, ${location.admin1}` : "";
+        const country = location.country || "Unknown country";
+
+        button.textContent = `${location.name}${admin}, ${country}`;
+
+        button.addEventListener("click", function() {
+            searchResults.innerHTML = "";
+            cityInput.value = location.name;
+            loadWeatherForLocation(location);
+        });
+
+        searchResults.appendChild(button);
+    });
+}
+
+
+/* =========================================================
+   LOAD WEATHER
+   ========================================================= */
+
+async function loadWeatherForLocation(location) {
+    try {
+        showLoading();
+        hideError();
 
         const latitude = location.latitude;
-
         const longitude = location.longitude;
-
         const country = location.country;
-
         const locationName = location.name;
 
-        // WEATHER API
         /*
-           Here we request several CURRENT weather variables.
-
-           current= means:
-           "Give me the current value of these variables."
-
-           timezone=auto means:
-           "Return the time according to the searched
-            location's timezone."
+           current = current conditions
+           daily = 7-day forecast data
         */
-
-        const weatherUrl =
-            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
-            `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,cloud_cover,precipitation,wind_speed_10m,wind_direction_10m,is_day` +
-            `&timezone=auto`;
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,cloud_cover,precipitation,wind_speed_10m,wind_direction_10m,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto`;
 
         const weatherResponse = await fetch(weatherUrl);
 
-        /*
-           Check whether weather request succeeded.
-        */
-
         if (!weatherResponse.ok) {
-
-            throw new Error(
-                "Unable to retrieve weather data right now."
-            );
-
+            throw new Error("Unable to retrieve weather data right now.");
         }
 
-
-
-        /*
-           Convert response to JSON.
-        */
-
-        const weatherData =
-            await weatherResponse.json();
-
-
-
-        /* =================================================
-           CHECK CURRENT WEATHER DATA
-           ================================================= */
+        const weatherData = await weatherResponse.json();
 
         if (!weatherData.current) {
-
-            throw new Error(
-                "Current weather information is unavailable."
-            );
-
+            throw new Error("Current weather information is unavailable.");
         }
 
+        const current = weatherData.current;
 
+        /* Extract current weather values */
+        const temperature = current.temperature_2m;
+        const feelsLike = current.apparent_temperature;
+        const humidity = current.relative_humidity_2m;
+        const windSpeed = current.wind_speed_10m;
+        const windDirection = current.wind_direction_10m;
+        const precipitation = current.precipitation;
+        const cloudCover = current.cloud_cover;
+        const weatherCode = current.weather_code;
+        const isDay = current.is_day;
 
-        /* =================================================
-           GET CURRENT WEATHER OBJECT
-           ================================================= */
+        const weatherInfo = weatherCodeMap[weatherCode];
+        const weatherCondition = weatherInfo ? weatherInfo[0] : "Unknown";
+        const weatherImagePath = weatherInfo ? weatherInfo[1] : "";
 
-        const currentWeather =
-            weatherData.current;
+        /* Location */
+        cityElement.textContent = country && locationName !== country
+            ? `${locationName}, ${country}`
+            : locationName;
 
-
-
-        /* =================================================
-           EXTRACT WEATHER VALUES
-           ================================================= */
-
-        /*
-           Current temperature
-        */
-
-        const temperature =
-            currentWeather.temperature_2m;
-
-        
-        const feelsLike =
-            currentWeather.apparent_temperature;
-
-        /*
-           Relative humidity
-        */
-
-        const humidity = currentWeather.relative_humidity_2m;
-
-        /*
-           Wind speed
-        */
-
-        const windSpeed =
-            currentWeather.wind_speed_10m;
-
-        /*
-           Wind direction in degrees.
-
-           Example:
-
-           0°   = North
-           90°  = East
-           180° = South
-           270° = West
-        */
-
-        const windDirection =
-            currentWeather.wind_direction_10m;
-
-        /*
-           Precipitation in millimetres.
-        */
-
-        const precipitation =
-            currentWeather.precipitation;
-
-        /*
-           Percentage of cloud cover.
-        */
-
-        const cloudCover =
-            currentWeather.cloud_cover;
-
-        /*
-           Weather code.
-        */
-
-        const weatherCode =
-            currentWeather.weather_code;
-
-
-
-        /*
-           is_day:
-
-           1 = daytime
-           0 = nighttime
-        */
-
-        const isDay =
-            currentWeather.is_day;
-
-
-
-        /* =================================================
-           GET WEATHER CONDITION + IMAGE
-           ================================================= */
-
-        const weatherInfo =
-            weatherCodeMap[weatherCode];
-
-
-
-        /*
-           If we don't recognize the weather code,
-           use a safe fallback.
-        */
-
-        const weatherCondition =
-            weatherInfo
-                ? weatherInfo[0]
-                : "Unknown";
-
-
-
-        const weatherImagePath =
-            weatherInfo
-                ? weatherInfo[1]
-                : "";
-
-
-
-        /* =================================================
-           DISPLAY LOCATION
-           ================================================= */
-
-        if (
-            country &&
-            locationName !== country
-        ) {
-
-            cityElement.textContent =
-                `${locationName}, ${country}`;
-
-        } else {
-
-            cityElement.textContent =
-                locationName;
-
-        }
-
-
-
-        /* =================================================
-           DISPLAY MAIN WEATHER
-           ================================================= */
-
-        temperatureElement.textContent =
-            temperature;
-
-
-
-        weatherConditionElement.textContent =
-            weatherCondition;
-
-
-
-        /* =================================================
-           DISPLAY WEATHER IMAGE
-           ================================================= */
+        /* Current weather */
+        temperatureElement.textContent = temperature;
+        weatherConditionElement.textContent = weatherCondition;
 
         if (weatherImagePath) {
-
-            weatherImage.src =
-                weatherImagePath;
-
+            weatherImage.src = weatherImagePath;
+            weatherImage.alt = weatherCondition;
         }
 
+        /* Weather details */
+        windSpeedElement.textContent = windSpeed;
+        humidityElement.textContent = humidity;
+        feelsLikeElement.textContent = feelsLike;
 
+        document.getElementById("wind-direction").textContent = getWindDirectionName(windDirection);
+        document.getElementById("wind-direction-degree").textContent = `${Math.round(windDirection)}°`;
+        document.getElementById("precipitation").textContent = precipitation;
+        document.getElementById("cloud-cover").textContent = cloudCover;
 
-        /*
-           Update the image's alt text dynamically.
+        /* Use the searched location's timezone */
+        const currentDate = new Date(current.time);
 
-           This is better for accessibility than always
-           having:
+        const formattedDate = currentDate.toLocaleDateString("en-IN", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric"
+        });
 
-           alt="Weather condition"
-        */
+        dateElement.textContent = `${formattedDate} • ${isDay === 1 ? "Daytime" : "Nighttime"}`;
 
-        weatherImage.alt =
-            weatherCondition;
+        /* Change page background based on weather */
+        updateWeatherTheme(weatherCode, isDay);
 
-
-
-        /* =================================================
-           DISPLAY WEATHER DETAILS
-           ================================================= */
-
-        /*
-           Wind speed
-        */
-
-        windSpeedElement.textContent =
-            windSpeed;
-
-
-
-        /*
-           Humidity
-        */
-
-        humidityElement.textContent =
-            humidity;
-
-
-
-        /*
-           Feels-like temperature
-        */
-
-        feelsLikeElement.textContent =
-            feelsLike;
-
-
-
-        /*
-           Wind direction
-        */
-
-        document.getElementById(
-            "wind-direction"
-        ).textContent =
-            getWindDirectionName(windDirection);
-
-
-
-        /*
-           Wind direction in degrees
-
-           Example:
-
-           NE (45°)
-        */
-
-        document.getElementById(
-            "wind-direction-degree"
-        ).textContent =
-            `${Math.round(windDirection)}°`;
-
-
-
-        /*
-           Precipitation
-        */
-
-        document.getElementById(
-            "precipitation"
-        ).textContent =
-            precipitation;
-
-
-
-        /*
-           Cloud cover
-        */
-
-        document.getElementById(
-            "cloud-cover"
-        ).textContent =
-            cloudCover;
-
-
-
-        /* =================================================
-           DISPLAY DATE
-           ================================================= */
-
-        /*
-           Open-Meteo gives us the timezone of the searched
-           location.        */
-
-        const today =
-            new Date();
-
-        const formattedDate =
-            today.toLocaleDateString(
-                "en-IN",
-                {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric"
-                }
-            );
-
-        dateElement.textContent =
-            formattedDate;
-
-        /* =================================================
-           DAY / NIGHT
-           ================================================= */
-
-        /*
-           Change the text below the condition depending
-           on whether it is currently day or night.
-
-           We will improve this UI later.
-        */
-
-        if (isDay === 1) {
-
-            dateElement.textContent +=
-                " • Daytime";
-
-        } else {
-
-            dateElement.textContent +=
-                " • Nighttime";
-
-        }
-
-
+        /* Create 7-day forecast cards */
+        displayForecast(weatherData.daily);
 
     } catch (error) {
-
-
-        /* =================================================
-           ERROR HANDLING
-           ================================================= */
-
-        console.error(
-            "Weather App Error:",
-            error
-        );
-
-
-
-        showError(
-            error.message ||
-            "Something went wrong. Please try again."
-        );
-
-
-
+        console.error("Weather App Error:", error);
+        showError(error.message || "Something went wrong. Please try again.");
     } finally {
-
-
-        /* =================================================
-           STOP LOADING
-           ================================================= */
-
         hideLoading();
-
     }
-
 }
 
-/* CONVERT WIND DIRECTION DEGREES INTO A COMPASS DIRECTION
-   
 
-   0°   → N
-   45°  → NE
-   90°  → E
-   135° → SE
-   180° → S
-   225° → SW
-   270° → W
-   315° → NW
+/* =========================================================
+   7-DAY FORECAST
+   ========================================================= */
 
-   Instead of showing only: 45° we'll show: NE and then display: 45° next to it.
+function displayForecast(dailyData) {
+    forecastContainer.innerHTML = "";
+
+    const dates = dailyData.time;
+    const weatherCodes = dailyData.weather_code;
+    const maxTemperatures = dailyData.temperature_2m_max;
+    const minTemperatures = dailyData.temperature_2m_min;
+
+    dates.forEach(function(date, index) {
+        const weatherInfo = weatherCodeMap[weatherCodes[index]];
+        const condition = weatherInfo ? weatherInfo[0] : "Unknown";
+        const image = weatherInfo ? weatherInfo[1] : "";
+
+        const forecastDate = new Date(`${date}T00:00:00`);
+
+        const dayName = index === 0
+            ? "Today"
+            : forecastDate.toLocaleDateString("en-IN", { weekday: "short" });
+
+        const cardColumn = document.createElement("div");
+        cardColumn.className = "col";
+
+        cardColumn.innerHTML = `
+            <div class="forecast-card">
+                <p class="forecast-day">${dayName}</p>
+                <img src="${image}" alt="${condition}" class="forecast-icon">
+                <p class="forecast-condition">${condition}</p>
+                <p class="forecast-temperature mb-0">
+                    ${Math.round(maxTemperatures[index])}°C
+                    <span class="forecast-low">${Math.round(minTemperatures[index])}°C</span>
+                </p>
+            </div>
+        `;
+
+        forecastContainer.appendChild(cardColumn);
+    });
+}
+
+
+/* =========================================================
+   DYNAMIC WEATHER BACKGROUND
+   ========================================================= */
+
+function updateWeatherTheme(code, isDay) {
+    document.body.className = "";
+
+    if (code === 0 || code === 1) {
+        document.body.classList.add(isDay === 1 ? "clear-day" : "clear-night");
+    } else if (code === 2 || code === 3) {
+        document.body.classList.add("cloudy");
+    } else if (code === 45 || code === 48) {
+        document.body.classList.add("foggy");
+    } else if (code >= 51 && code <= 67) {
+        document.body.classList.add("rainy");
+    } else if (code >= 71 && code <= 86) {
+        document.body.classList.add("snowy");
+    } else if (code >= 95) {
+        document.body.classList.add("stormy");
+    }
+}
+
+
+/* =========================================================
+   USE MY LOCATION
+   ========================================================= */
+
+function getCurrentLocation() {
+    if (!navigator.geolocation) {
+        showError("Geolocation is not supported by your browser.");
+        return;
+    }
+
+    showLoading();
+    hideError();
+
+    /*
+       Browser gives us latitude + longitude.
+       We then send those coordinates directly to Open-Meteo.
+    */
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            const location = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                name: "Your Location",
+                country: ""
+            };
+
+            loadWeatherForLocation(location);
+        },
+        function(error) {
+            hideLoading();
+
+            if (error.code === error.PERMISSION_DENIED) {
+                showError("Location permission was denied. Please allow location access and try again.");
+            } else {
+                showError("Unable to determine your location. Please search for a city instead.");
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   WIND DIRECTION
    ========================================================= */
 
 function getWindDirectionName(degrees) {
-    /*
-       Array containing the eight major compass directions.
-    */
-
-    const directions = ["N","NE","E","SE","S","SW","W","NW"];
-
-    /*
-       Each compass direction covers 45 degrees.
-
-       Adding 22.5 makes the boundaries line up correctly.
-
-       Math.floor() gives us the appropriate array index.
-    */
-
+    const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
     const index = Math.floor((degrees + 22.5) / 45) % 8;
-    /*
-       Return the appropriate direction.
-    */
 
     return directions[index];
-
 }
+
 
 /* =========================================================
-   LOADING FUNCTIONS
+   LOADING + ERROR FUNCTIONS
    ========================================================= */
 
-/*
-   Show the loading spinner.
-*/
-
 function showLoading() {
-    /*
-       Bootstrap's "d-none" class hides an element.
-       Remove it to make the loading section visible.
-    */
-
     loadingElement.classList.remove("d-none");
-
-    /*
-       Disable the Search button while the request is
-       running.
-       This prevents accidental repeated API requests.
-    */
-
     searchButton.disabled = true;
-
-    /*
-       Change the button text so the user knows what
-       is happening.
-    */
-
+    locationButton.disabled = true;
     searchButton.textContent = "Searching...";
-
 }
-
-/*
-   Hide the loading spinner.
-*/
 
 function hideLoading() {
-
-    /*
-       Add Bootstrap's d-none class again.
-    */
-
     loadingElement.classList.add("d-none");
-
-    /*
-       Re-enable Search button.
-    */
     searchButton.disabled = false;
-
-    /*
-       Restore original button text.
-    */
-
+    locationButton.disabled = false;
     searchButton.textContent = "Search";
-
 }
-
-/* ERROR FUNCTIONS */
-
-/*
-   Display an error message.
-*/
 
 function showError(message) {
-
-    /*
-       Put the message inside the Bootstrap alert.
-    */
-
     errorElement.textContent = message;
-
-    /*
-       Remove d-none so the alert becomes visible.
-    */
     errorElement.classList.remove("d-none");
-
 }
-
-/*
-   Hide an existing error message.
-*/
 
 function hideError() {
-
     errorElement.classList.add("d-none");
-
 }
-
-/* * *********************************************************/
 
 
 /* const weatherCodeMap = {             // this is the map for the weather codes, used to identify the weather condition based on the numbers
