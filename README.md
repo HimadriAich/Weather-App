@@ -6,6 +6,13 @@ The project started as a simple weather app and was gradually enhanced with a re
 
 ---
 
+## 🌐 Live Demo
+
+🚀 **Try SkyScan live:**  
+https://skyscanner-weather.netlify.app/
+
+---
+
 ## 🚀 Features
 
 - 🔍 Search weather by city name
