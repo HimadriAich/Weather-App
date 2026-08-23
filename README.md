@@ -247,13 +247,13 @@ While an API request is running:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/skyscan-weather-app.git
+git clone https://github.com/HimadriAich/Weather-App.git
 ```
 
 ### 2. Navigate into the project
 
 ```bash
-cd skyscan-weather-app
+cd Weather-App
 ```
 
 ### 3. Open the project
